@@ -1,0 +1,17 @@
+services:
+  school:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - AUTH_SECRET=${AUTH_SECRET:?Set AUTH_SECRET in .env}
+      - SMS_PROVIDER=${SMS_PROVIDER:-outbox}
+      - SMS_API_URL=${SMS_API_URL:-}
+      - SMS_API_KEY=${SMS_API_KEY:-}
+      - BACKUP_HOURS=${BACKUP_HOURS:-24}
+    volumes:
+      - school-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  school-data:

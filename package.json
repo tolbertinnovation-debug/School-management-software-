@@ -1,0 +1,22 @@
+{
+  "name": "liberia-sms",
+  "version": "1.0.0",
+  "description": "Ma Weade School Suite — offline-first School Management Software for schools in Liberia",
+  "main": "server/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "migrate": "node server/db/migrate.js",
+    "seed": "node server/db/seed.js",
+    "backup": "node server/db/backup.js",
+    "test": "node --test tests/*.test.js"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "dependencies": {
+    "express": "^4.21.0"
+  },
+  "license": "MIT"
+}

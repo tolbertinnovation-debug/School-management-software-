@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1e6b3a">
+  <meta name="description" content="Ma Weade School Suite — offline-first school management for Liberian schools">
+  <title>Ma Weade School Suite</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <header id="topbar" style="display:none">
+    <span class="title">School Suite</span>
+    <a href="#/sync" title="Sync status" style="color:#fff;text-decoration:none">
+      <span id="pending-badge" style="display:none">0</span> 📶</a>
+    <button id="topbar-settings" title="Settings">⚙️</button>
+  </header>
+  <div id="offline-badge">📴 Offline — your work is saved on this phone and will upload automatically.</div>
+  <main id="view"><div class="card"><p class="muted">Loading…</p></div></main>
+  <nav id="bottomnav" style="display:none"></nav>
+  <div id="toast"></div>
+  <script src="/js/db.js"></script>
+  <script src="/js/ui.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/views-core.js"></script>
+  <script src="/js/views-academic.js"></script>
+  <script src="/js/views-money.js"></script>
+  <script src="/js/views-more.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>
