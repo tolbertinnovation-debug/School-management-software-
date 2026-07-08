@@ -1,7 +1,7 @@
 /* Service worker: app shell is cache-first (works fully offline),
    API GETs are network-first with cache fallback, mutations pass through
    (the page-side outbox in js/api.js queues them when offline). */
-const SHELL_CACHE = 'shell-v1';
+const SHELL_CACHE = 'shell-v2';   // bump on every release so installed clients refresh
 const API_CACHE = 'api-v1';
 const SHELL = [
   '/', '/index.html', '/manifest.webmanifest',

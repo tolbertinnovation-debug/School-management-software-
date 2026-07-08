@@ -10,9 +10,9 @@ use at the start of a school year, then daily and termly routines.
 2. **School profile**: Settings → School profile. Fill in the school name,
    **EMIS code** (from the Ministry — used on all exports and student IDs),
    county, address, phone, principal name. Save.
-3. **Academic year & semesters**: created at installation for the demo; for a
-   new year use the API or ask your support contact (Settings → coming UI), or
-   keep using the current year until closing.
+3. **Academic year & semesters**: Settings → *Year & promotion* → *New academic
+   year* (two semesters are created automatically; tick "make current"). The
+   same screen switches the current semester at mid-year.
 4. **Staff accounts**: Settings → Users & roles → *Add staff account*. Give
    every teacher and the bursar their own login — never share accounts, the
    audit trail depends on it. Passwords must be 8+ characters.
@@ -55,8 +55,10 @@ use at the start of a school year, then daily and termly routines.
 4. **Report cards**: 📝 Grades → pick class + term → *Generate report cards* →
    review with *Computed grades* → **Publish + SMS parents**. Publishing freezes
    the cards and notifies every guardian. Print copies from Report cards.
-5. **Promotion** (year end): handled per class with the promotion workflow —
-   promoted students move to the new class, graduates are marked.
+5. **Promotion** (year end): Settings → *Year & promotion* → pick the class and
+   the target class → load students → set each to Promote / Retain /
+   Conditional / Graduate → Apply. Promoted students move class immediately;
+   graduates leave the active roll.
 6. **Ministry reporting**: 📊 Reports → EMIS CSV downloads (enrollment, staff,
    register) — email them or hand a USB stick to the County Education Office.
 

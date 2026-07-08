@@ -275,6 +275,10 @@ Views.settings = async () => {
         <label class="f grow"><span>Principal</span><input type="text" id="sp-principal" value="${E(s.principal || '')}"></label>
       </div>
       <button class="btn small">💾 Save profile</button></form></div>
+    <div class="card"><h2>Academic year</h2>
+      <p class="muted">Create the new year, switch the current semester, and run end-of-year promotion.</p>
+      <a class="btn small secondary" href="#/yearend">📆 Year & promotion</a>
+      <a class="btn small secondary" href="#/timetable">🗓 Timetable editor</a></div>
     <div class="card"><h2>Backup & data</h2>
       <p class="muted">The database is backed up automatically. Take a manual snapshot before big changes and copy it to a USB drive.</p>
       <div class="btn-row"><button class="btn small" id="set-backup">💾 Backup now</button></div>
@@ -418,6 +422,126 @@ Views.child = async ({ id }) => {
     ${(d.discipline || []).length ? `<div class="card"><h2>Discipline notes</h2>
       ${d.discipline.map(x => `<div class="list-item" style="cursor:default"><span>⚠️</span>
       <div class="grow"><b>${E(x.category || '')}</b> — ${E(x.description)}<div class="muted">${UI.dmy(x.date)} · ${E(x.action || '')}</div></div></div>`).join('')}</div>` : ''}`;
+};
+
+// ------------------------------------------------------------------ YEAR-END / ROLLOVER (admin)
+Views.yearend = async () => {
+  $v().innerHTML = UI.spin;
+  const [yrs, cls] = await Promise.all([API.get('/academics/years'), API.get('/academics/classes')]);
+  const years = yrs.data || [];
+  const classes = cls.data || [];
+  const termsByYear = {};
+  for (const y of years.slice(0, 4)) {
+    const t = await API.get(`/academics/terms?academic_year_id=${y.id}`).catch(() => ({ data: [] }));
+    termsByYear[y.id] = t.data || [];
+  }
+  $v().innerHTML = `
+    <div class="card"><h1>📆 Academic year & promotion</h1>
+      <p class="muted">End-of-year order: 1) finish and publish report cards → 2) promote each class →
+      3) create the new year → 4) make its first term current.</p></div>
+    <div class="card"><h2>Years & terms</h2>
+      ${years.map(y => `
+        <div style="margin-bottom:10px">
+          <b>${E(y.name)}</b> ${y.is_current ? '<span class="chip ok">current year</span>' : ''}
+          <div class="muted">${UI.dmy(y.start_date)} → ${UI.dmy(y.end_date)}</div>
+          <div class="row" style="margin-top:4px">${(termsByYear[y.id] || []).map(t => `
+            <span class="chip ${t.is_current ? 'ok' : 'neutral'}">${E(t.name)}</span>
+            ${!t.is_current ? `<button class="btn small secondary" data-curterm="${t.id}">make current</button>` : ''}`).join('')}
+          </div>
+        </div>`).join('') || '<p class="muted">No years yet.</p>'}
+      <button class="btn small" id="ye-newyear">➕ New academic year</button>
+    </div>
+    <div class="card"><h2>Promote a class</h2>
+      <div class="row">
+        <label class="f grow"><span>From class</span><select id="ye-from">
+          ${classes.map(c => `<option value="${c.id}">${E(c.name)}</option>`).join('')}</select></label>
+        <label class="f grow"><span>Promoted students go to</span><select id="ye-to">
+          <option value="">— (graduating class)</option>
+          ${classes.map(c => `<option value="${c.id}">${E(c.name)}</option>`).join('')}</select></label>
+      </div>
+      <button class="btn small secondary" id="ye-load">Load students</button>
+      <div id="ye-students" style="margin-top:10px"></div>
+    </div>`;
+
+  document.querySelectorAll('[data-curterm]').forEach(b => b.onclick = async () => {
+    await API.put(`/academics/terms/${b.dataset.curterm}`, { is_current: 1 }, { queueable: false });
+    UI.toast('Current term updated ✓'); Views.yearend();
+  });
+
+  document.getElementById('ye-newyear').onclick = () => {
+    const y = new Date().getFullYear();
+    UI.modal(`<h2>New academic year</h2><form id="nyf">
+      <label class="f"><span>Name</span><input type="text" id="ny-name" value="${y}/${y + 1}" required></label>
+      <div class="row">
+        <label class="f grow"><span>Starts</span><input type="date" id="ny-start" value="${y}-09-01" required></label>
+        <label class="f grow"><span>Ends</span><input type="date" id="ny-end" value="${y + 1}-07-10" required></label>
+      </div>
+      <label class="f"><input type="checkbox" id="ny-current" checked> Make this the current year</label>
+      <label class="f"><input type="checkbox" id="ny-terms" checked> Create two semesters automatically</label>
+      <div class="btn-row"><button class="btn">Create</button>
+      <button type="button" class="btn secondary" data-close>Cancel</button></div></form>`);
+    document.getElementById('nyf').onsubmit = async (e) => {
+      e.preventDefault();
+      const start = document.getElementById('ny-start').value, end = document.getElementById('ny-end').value;
+      if (end <= start) return UI.toast('End date must be after start date');
+      try {
+        const yr = await API.post('/academics/years', {
+          name: document.getElementById('ny-name').value.trim(),
+          start_date: start, end_date: end,
+          is_current: document.getElementById('ny-current').checked ? 1 : 0,
+        }, { queueable: false });
+        if (document.getElementById('ny-terms').checked) {
+          // split the year at the new-year boundary: S1 ends late Jan, S2 starts early Feb
+          const janEnd = `${start.slice(0, 4) * 1 + 1}-01-31`;
+          const febStart = `${start.slice(0, 4) * 1 + 1}-02-09`;
+          await API.post('/academics/terms', {
+            academic_year_id: yr.data.id, name: 'First Semester', seq: 1,
+            start_date: start, end_date: janEnd,
+            is_current: document.getElementById('ny-current').checked ? 1 : 0,
+          }, { queueable: false });
+          await API.post('/academics/terms', {
+            academic_year_id: yr.data.id, name: 'Second Semester', seq: 2,
+            start_date: febStart, end_date: end, is_current: 0,
+          }, { queueable: false });
+        }
+        UI.close(); UI.toast('Academic year created ✓'); Views.yearend();
+      } catch (ex) { UI.toast(ex.message); }
+    };
+  };
+
+  document.getElementById('ye-load').onclick = async () => {
+    const fromId = Number(document.getElementById('ye-from').value);
+    const out = document.getElementById('ye-students');
+    out.innerHTML = UI.spin;
+    const r = await API.get(`/students?class_id=${fromId}&limit=200`);
+    const students = (r.data || []).filter(s => s.status === 'active');
+    if (!students.length) { out.innerHTML = '<p class="muted">No active students in this class.</p>'; return; }
+    const state = Object.fromEntries(students.map(s => [s.id, 'promoted']));
+    out.innerHTML = `
+      ${students.map(s => `
+        <div class="list-item" style="cursor:default"><div class="grow">${E(s.first_name)} ${E(s.last_name)}</div>
+        <select data-decide="${s.id}" style="max-width:150px">
+          <option value="promoted">Promote</option>
+          <option value="retained">Retain</option>
+          <option value="conditional">Conditional</option>
+          <option value="graduated">Graduate</option>
+        </select></div>`).join('')}
+      <div class="btn-row"><button class="btn" id="ye-apply">✔ Apply decisions (${students.length})</button></div>`;
+    out.querySelectorAll('[data-decide]').forEach(sel => sel.onchange = () => { state[sel.dataset.decide] = sel.value; });
+    document.getElementById('ye-apply').onclick = async () => {
+      const toId = Number(document.getElementById('ye-to').value) || null;
+      const promotedCount = Object.values(state).filter(d => d === 'promoted' || d === 'conditional').length;
+      if (promotedCount && !toId && !confirm('No target class chosen — promoted students will keep their current class. Continue?')) return;
+      if (!confirm(`Apply ${students.length} promotion decisions? Promoted/conditional students move to the selected class; graduates leave the roll.`)) return;
+      const yearId = (years.find(y => y.is_current) || {}).id || null;
+      const res = await API.post('/grades/promotions/bulk', {
+        from_class_id: fromId, to_class_id: toId, year_id: yearId,
+        decisions: Object.entries(state).map(([student_id, decision]) => ({ student_id: Number(student_id), decision })),
+      }, { queueable: false });
+      UI.toast(`Recorded ${res.decided} decisions ✓`);
+      out.innerHTML = '<p class="muted">Done. Load another class to continue.</p>';
+    };
+  };
 };
 
 // ------------------------------------------------------------------ SYNC STATUS

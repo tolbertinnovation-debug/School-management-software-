@@ -22,6 +22,7 @@ const App = (() => {
     '/reports': Views.reports,
     '/audit': Views.audit,
     '/settings': Views.settings,
+    '/yearend': Views.yearend,
     '/sync': Views.sync,
     '/child': Views.child,
   };
@@ -44,6 +45,7 @@ const App = (() => {
     '/assets': ['school_admin', 'super_admin'],
     '/reports': ['school_admin', 'accountant', 'teacher', 'county_officer', 'super_admin'],
     '/audit': ['school_admin', 'county_officer', 'super_admin'],
+    '/yearend': ['school_admin', 'super_admin'],
   };
 
   const NAV_STAFF = [

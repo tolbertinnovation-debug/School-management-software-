@@ -205,24 +205,73 @@ Views.reportcards = async ({ student } = {}) => {
 Views.timetable = async () => {
   const cls = await API.get('/academics/classes');
   const classes = cls.data || [];
+  const isAdmin = App.can('school_admin');
   $v().innerHTML = `
     <div class="card"><h1>🗓 Timetable</h1>
-      <select id="tt-class">${classes.map(c => `<option value="${c.id}">${E(c.name)}</option>`).join('')}</select>
+      <div class="row">
+        <select id="tt-class" class="grow">${classes.map(c => `<option value="${c.id}">${E(c.name)}</option>`).join('')}</select>
+        ${isAdmin ? '<button class="btn small" id="tt-add">➕ Add period</button>' : ''}
+      </div>
     </div><div class="card tablewrap" id="tt-out"></div>`;
   const DAYS = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  const classId = () => Number(document.getElementById('tt-class').value);
   async function load() {
-    const r = await API.get(`/academics/timetable-grid?class_id=${document.getElementById('tt-class').value}`);
+    const r = await API.get(`/academics/timetable-grid?class_id=${classId()}`);
     const byDay = {};
     for (const s of r.data || []) (byDay[s.weekday] ||= []).push(s);
     document.getElementById('tt-out').innerHTML = Object.keys(byDay).length
       ? Object.entries(byDay).map(([d, slots]) => `
         <h3 style="margin:10px 0 4px">${DAYS[d]}</h3>
         <table><tbody>${slots.map(s => `<tr><td>${E(s.start_time)}–${E(s.end_time)}</td>
-          <td><b>${E(s.subject_name)}</b></td><td class="muted">${E(s.teacher_name || '')}</td><td class="muted">${E(s.room || '')}</td></tr>`).join('')}
+          <td><b>${E(s.subject_name)}</b></td><td class="muted">${E(s.teacher_name || '')}</td><td class="muted">${E(s.room || '')}</td>
+          ${isAdmin ? `<td><button class="btn small danger" data-del="${s.id}">✖</button></td>` : ''}</tr>`).join('')}
         </tbody></table>`).join('')
-      : '<p class="muted">No timetable set for this class yet. The administrator can add periods in Settings → Timetable.</p>';
+      : `<p class="muted">No timetable set for this class yet.${isAdmin ? ' Use "Add period" to build the week.' : ''}</p>`;
+    document.querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
+      if (!confirm('Remove this period?')) return;
+      await API.del(`/academics/timetable/${b.dataset.del}`, { label: 'timetable slot' });
+      UI.toast('Removed ✓'); load();
+    });
   }
   document.getElementById('tt-class').onchange = load;
+  const addBtn = document.getElementById('tt-add');
+  if (addBtn) addBtn.onclick = async () => {
+    const [subs, teachers] = await Promise.all([
+      API.get('/academics/subjects'),
+      API.get('/users?role=teacher').catch(() => ({ data: [] })),
+    ]);
+    UI.modal(`<h2>Add period</h2><form id="ttf">
+      <label class="f"><span>Day</span><select id="tt-day">
+        ${[1, 2, 3, 4, 5, 6].map(d => `<option value="${d}">${DAYS[d]}</option>`).join('')}</select></label>
+      <div class="row">
+        <label class="f grow"><span>Starts</span><input type="time" id="tt-start" value="08:00" required></label>
+        <label class="f grow"><span>Ends</span><input type="time" id="tt-end" value="08:50" required></label>
+      </div>
+      <label class="f"><span>Subject</span><select id="tt-sub">
+        ${(subs.data || []).map(s => `<option value="${s.id}">${E(s.name)}</option>`).join('')}</select></label>
+      <label class="f"><span>Teacher (optional — enables clash detection)</span><select id="tt-teacher">
+        <option value="">—</option>
+        ${(teachers.data || []).map(t => `<option value="${t.id}">${E(t.full_name)}</option>`).join('')}</select></label>
+      <label class="f"><span>Room</span><input type="text" id="tt-room" placeholder="Room 7"></label>
+      <div class="btn-row"><button class="btn">💾 Add</button>
+      <button type="button" class="btn secondary" data-close>Cancel</button></div></form>`);
+    document.getElementById('ttf').onsubmit = async (e) => {
+      e.preventDefault();
+      const start = document.getElementById('tt-start').value, end = document.getElementById('tt-end').value;
+      if (end <= start) return UI.toast('End time must be after start time');
+      try {
+        const r = await API.post('/academics/timetable', {
+          class_id: classId(),
+          subject_id: Number(document.getElementById('tt-sub').value),
+          teacher_id: Number(document.getElementById('tt-teacher').value) || null,
+          weekday: Number(document.getElementById('tt-day').value),
+          start_time: start, end_time: end,
+          room: document.getElementById('tt-room').value.trim() || null,
+        }, { queueable: false });   // clash detection needs a live answer
+        UI.close(); UI.toast('Period added ✓'); load();
+      } catch (ex) { UI.toast(ex.message, 4500); }   // 409: class/teacher double-booked
+    };
+  };
   load();
 };
 
